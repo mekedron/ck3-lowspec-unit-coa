@@ -1,0 +1,42 @@
+[h1]Unit Coats of Arms Without Advanced Shaders[/h1]
+
+[h2]Help fix this in the base game[/h2]
+I have asked Paradox for one graphics checkbox that makes the map sharp with Advanced Shaders off — in the game itself, for everyone, with no conflicts with total conversions. If this mod helps you, please [b]like the thread or reply with your GPU[/b], so the developers see how many of us there are:
+[url=https://forum.paradoxplaza.com/forum/threads/1946916/]Paradox forum: sharp terrain with Advanced Shaders off[/url]
+
+[b]Guide:[/b] [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3800254441]CK3 on a potato PC: a locked 60 FPS, and the map still looks sharp[/url] — the full settings list these mods are built around, on a 4 GB laptop GPU at 5120x1440.
+
+With the [b]Advanced Shaders[/b] graphics option turned off, the coats of arms disappear from the shields of your soldiers and the sails of your ships — the models show only the plain realm colours. This mod brings the heraldry back while keeping the option off.
+
+[h2]The cause[/h2]
+
+Unit and ship models are drawn by the mesh effect standard_usercolor_coa in gfx/FX/pdxmesh.shader. Its pixel shader reads the owner's coat of arms from the flag atlas and blends it into the parts of the texture masked for heraldry — but vanilla wraps that read in a "not low spec" guard. With Advanced Shaders off the coat of arms is compiled out and only the realm colour tint is left.
+
+[h2]The fix[/h2]
+
+The mod is the vanilla pdxmesh.shader with that one guard lifted: the coat of arms is read under low spec too. The rest of the low spec path — vertex normals, cheap lighting, no shadows — is untouched.
+
+The cost is one texture read per pixel, and only on unit and ship models, a small part of the screen. Every other mesh compiles to exactly the vanilla code.
+
+[h2]Notes[/h2]
+
+[list]
+[*][b]Only matters with Advanced Shaders off.[/b] With it on vanilla already draws the coats of arms and this mod changes nothing
+[*]Graphics-only: no gameplay, script or history files are changed, so ironman and achievements are unaffected
+[*]Safe to add or remove at any time, including mid-campaign — it does not touch save games
+[*]The first map load after enabling is slower: the modified shader is compiled and cached from scratch
+[*]Built for CK3 1.20.x. Shader overrides replace the vanilla file wholesale, so a patch that reworks pdxmesh.shader will need an update here
+[/list]
+
+[h2]Compatibility[/h2]
+
+Replaces gfx/FX/pdxmesh.shader in full. It conflicts only with mods that ship that same file; whichever is lower in the load order wins. Works alongside [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3800159542]Sharp Terrain[/url], [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3800565268]Real Snow[/url], [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3800565988]Better Water[/url] and the [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3815911404]All-in-One Map Pack[/url] — none of them touches that file.
+
+[b]Not for A Game of Thrones:[/b] AGOT ships its own pdxmesh.shader, and this mod would replace it.
+
+[h2]Source[/h2]
+
+The full source is on GitHub, including the exact change against the vanilla shader and an install script for Linux / Proton users:
+[url=https://github.com/mekedron/ck3-lowspec-unit-coa]github.com/mekedron/ck3-lowspec-unit-coa[/url]
+
+Issues and pull requests are welcome.

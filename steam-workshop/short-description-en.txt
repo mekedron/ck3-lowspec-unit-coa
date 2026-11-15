@@ -1,0 +1,1 @@
+With Advanced Shaders off, keeps the coats of arms on unit shields and ship sails instead of plain realm colours. One texture read, unit models only.
