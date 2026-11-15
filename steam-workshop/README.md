@@ -11,6 +11,7 @@ itself — the mod is `descriptor.mod`, `thumbnail.png` and `gfx/` in the reposi
 | `description-paradoxmods-ru.txt` | Russian version without BBCode |
 | `short-description-en.txt` | Launcher / Paradox Mods short description, under 200 chars |
 | `short-description-ru.txt` | Russian short description, under 200 chars |
+| `make_thumbnail.py` | draws `thumbnail.png` (BEFORE / AFTER shields) and `thumbnail-200px.png` |
 
 The `description-paradoxmods-*.txt` files are derived from the BBCode ones (headers
 uppercased, `[*]` to `-`, tags dropped, `[url]` reduced to the bare link). Edit the BBCode
@@ -26,6 +27,7 @@ Copy a description to the clipboard (Wayland):
 * **Tags:** Fixes, Graphics — same as `descriptor.mod`
 * **Version:** 1.0.0, `supported_version="1.20.*"`
 * **Visibility:** public
+* **Workshop item:** 3840592984 (`remote_file_id` in `descriptor.mod`)
 
 Steam's description limit is 8000 bytes; both BBCode descriptions are well under it.
 
@@ -35,7 +37,10 @@ The launcher picks up `thumbnail.png` from the mod root (next to `descriptor.mod
 what `picture="thumbnail.png"` in the descriptor points at. Without that file the item shows
 Steam's default placeholder; images added to the item's gallery on the website do not
 replace it. After adding or changing it, re-run `install.sh` and upload again from the
-launcher — that updates the existing Workshop item. Steam's limit is 1 MB.
+launcher — that updates the existing Workshop item. Steam's limit is 1 MB; the drawn
+preview is about 60 KB.
+
+`thumbnail-200px.png` is a legibility check at Steam's listing size and is not uploaded.
 
 **Do not use `[code]` in the Steam files.** Steam renders it as a full-width block, so an
 identifier written mid-sentence becomes its own boxed paragraph.
