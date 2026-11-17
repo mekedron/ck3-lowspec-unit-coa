@@ -24,11 +24,11 @@ NOTES
 - Graphics-only: no gameplay, script or history files are changed, so ironman and achievements are unaffected
 - Safe to add or remove at any time, including mid-campaign — it does not touch save games
 - The first map load after enabling is slower: the modified shader is compiled and cached from scratch
-- Built for CK3 1.20.x. Shader overrides replace the vanilla file wholesale, so a patch that reworks pdxmesh.shader will need an update here
+- Built for CK3 1.21.x. Shader overrides replace the vanilla file wholesale, so a patch that reworks pdxmesh.shader will need an update here
 
 COMPATIBILITY
 
-Replaces gfx/FX/pdxmesh.shader in full. It conflicts only with mods that ship that same file; whichever is lower in the load order wins. Works alongside https://steamcommunity.com/sharedfiles/filedetails/?id=3800159542, https://steamcommunity.com/sharedfiles/filedetails/?id=3800565268, https://steamcommunity.com/sharedfiles/filedetails/?id=3800565988 and the https://steamcommunity.com/sharedfiles/filedetails/?id=3815911404 — none of them touches that file.
+Replaces gfx/FX/pdxmesh.shader in full. It conflicts only with mods that ship that same file; whichever is lower in the load order wins. Works alongside https://steamcommunity.com/sharedfiles/filedetails/?id=3800159542, https://steamcommunity.com/sharedfiles/filedetails/?id=3800565268, https://steamcommunity.com/sharedfiles/filedetails/?id=3800565988 — none of them touches that file. The All-in-One Map Pack, https://steamcommunity.com/sharedfiles/filedetails/?id=3815911404, already contains this mod: use one or the other, not both.
 
 Not for A Game of Thrones: AGOT ships its own pdxmesh.shader, and this mod would replace it.
 

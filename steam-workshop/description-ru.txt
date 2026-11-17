@@ -25,12 +25,12 @@
 [*]Только графика: никаких файлов геймплея, скриптов и истории, железный режим и достижения не страдают
 [*]Можно включать и выключать в любой момент, в том числе посреди кампании
 [*]Первая загрузка карты после включения медленнее: изменённый шейдер компилируется и кэшируется заново
-[*]Собран под CK3 1.20.x. Переопределение заменяет ванильный файл целиком, так что патч, переделывающий pdxmesh.shader, потребует обновления
+[*]Собран под CK3 1.21.x. Переопределение заменяет ванильный файл целиком, так что патч, переделывающий pdxmesh.shader, потребует обновления
 [/list]
 
 [h2]Совместимость[/h2]
 
-Заменяет gfx/FX/pdxmesh.shader целиком. Конфликтует только с модами, которые несут этот же файл; побеждает тот, что ниже в порядке загрузки. Совместим с [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3800159542]Sharp Terrain[/url], [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3800565268]Real Snow[/url], [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3800565988]Better Water[/url] и [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3815911404]All-in-One Map Pack[/url] — ни один из них этот файл не трогает.
+Заменяет gfx/FX/pdxmesh.shader целиком. Конфликтует только с модами, которые несут этот же файл; побеждает тот, что ниже в порядке загрузки. Совместим с [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3800159542]Sharp Terrain[/url], [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3800565268]Real Snow[/url], [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3800565988]Better Water[/url] — ни один из них этот файл не трогает. [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3815911404]All-in-One Map Pack[/url] уже содержит этот мод: ставьте либо его, либо этот, но не оба.
 
 [b]Не для A Game of Thrones:[/b] у AGOT свой pdxmesh.shader, и этот мод его заменил бы.
 

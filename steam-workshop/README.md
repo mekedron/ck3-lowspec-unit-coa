@@ -25,7 +25,7 @@ Copy a description to the clipboard (Wayland):
 
 * **Title:** Unit Coats of Arms Without Advanced Shaders
 * **Tags:** Fixes, Graphics — same as `descriptor.mod`
-* **Version:** 1.0.0, `supported_version="1.20.*"`
+* **Version:** 1.1.0, `supported_version="1.21.*"`
 * **Visibility:** public
 * **Workshop item:** 3840592984 (`remote_file_id` in `descriptor.mod`)
 

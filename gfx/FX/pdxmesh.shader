@@ -1,4 +1,4 @@
-# Unit Coats of Arms Without Advanced Shaders - copy of game/gfx/FX/pdxmesh.shader from CK3 1.20.1.2.
+# Unit Coats of Arms Without Advanced Shaders - copy of game/gfx/FX/pdxmesh.shader from CK3 1.21.0.
 # One change vs vanilla:
 #   * PS_standard, COA: the coat of arms atlas read is no longer excluded under LOW_SPEC_SHADERS,
 #     so unit shields and ship sails (effect standard_usercolor_coa) keep their heraldry with
@@ -18,6 +18,7 @@ Includes = {
 	"jomini/jomini_mapobject.fxh"
 	"jomini/translucency.fxh"
 	"constants.fxh"
+	"bordercolor.fxh"
 	"standardfuncsgfx.fxh"
 	"shadow_tint.fxh"
 	"lowspec.fxh"
@@ -209,6 +210,15 @@ VertexStruct VS_OUTPUT
 
 VertexShader =
 {
+	TextureSampler DiffuseMap
+	{
+		Index = 0
+		MagFilter = "Linear"
+		MinFilter = "Linear"
+		MipFilter = "Linear"
+		SampleModeU = "Wrap"
+		SampleModeV = "Wrap"
+	}
 	Code
 	[[
 		VS_OUTPUT ConvertOutput( VS_OUTPUT_PDXMESH In )
@@ -260,7 +270,6 @@ VertexShader =
 
 			float Derivative = WAVE_SCALE * ( LargeWave + SmallWave + cos( SmallWaveV ) * SmallWaveD );
 
-
 			float2 WaveTangent = normalize( float2( 1.0f, Derivative ) );
 			float3 AnimationDir = cross( Tangent.xyz, float3(0,1,0) );
 			Position += AnimationDir * Wave;
@@ -269,6 +278,82 @@ VertexShader =
 			float3 WaveNormal = float3( WaveTangent.y, 0.0f, -WaveTangent.x ) * FlipNormal;
 			float WaveNormalStrength = 0.3;
 			Normal = lerp( Normal, WaveNormal, WaveNormalStrength ); // wave normal strength
+		}
+
+		float3 RotateAroundUnitAxis( float3 Position, float3 UnitAxis, float CosTiltAngle, float SinTiltAngle )
+		{
+			return Position * CosTiltAngle + cross( UnitAxis, Position ) * SinTiltAngle + UnitAxis * dot( UnitAxis, Position ) * ( 1.0f - CosTiltAngle );
+		}
+
+		float3 LinearWorldDeltaToObject( float3x3 WorldLinear, float3 DeltaWorld )
+		{
+			float3 Column0 = float3( WorldLinear[0][0], WorldLinear[1][0], WorldLinear[2][0] );
+			float3 Column1 = float3( WorldLinear[0][1], WorldLinear[1][1], WorldLinear[2][1] );
+			float3 Column2 = float3( WorldLinear[0][2], WorldLinear[1][2], WorldLinear[2][2] );
+			float WorldMatrixDeterminant = dot( Column0, cross( Column1, Column2 ) );
+			if ( abs( WorldMatrixDeterminant ) < 1e-10f )
+			{
+				return float3( 0.0f, 0.0f, 0.0f );
+			}
+			return ( cross( Column1, Column2 ) * DeltaWorld.x + cross( Column2, Column0 ) * DeltaWorld.y + cross( Column0, Column1 ) * DeltaWorld.z ) / WorldMatrixDeterminant;
+		}
+
+		void ApplyBoatBob( inout float3 ObjectPosition, inout float3 Normal, inout float4 Tangent, float4x4 WorldMatrix )
+		{
+			#ifdef LOW_SPEC_SHADERS
+				return;
+			#endif
+			
+			const float BobSpeed = 2.3f;
+			const float WorldBobAmplitudeMeters = 0.050f;
+			const float TiltSpeed = 0.89f;
+			const float TiltAmplitudeRad = 0.330f;
+			float3x3 WorldMatrix3x3 = CastTo3x3( WorldMatrix );
+			float3 WorldOrigin = mul( WorldMatrix, float4( 0.0f, 0.0f, 0.0f, 1.0f ) ).xyz;
+			float2 PositionXZ = WorldOrigin.xz;
+			float PhaseBob = dot( PositionXZ, float2( 2.35f, 2.08f ) )
+				+ sin( dot( PositionXZ, float2( 6.91f, 5.47f ) ) ) * 1.85f
+				+ sin( dot( PositionXZ, float2( 13.2f, 17.8f ) ) ) * 0.92f;
+			float PhaseTilt = dot( PositionXZ, float2( -1.62f, 2.74f ) )
+				+ sin( dot( PositionXZ + float2( 110.0f, 220.0f ), float2( 4.31f, 8.07f ) ) ) * 2.2f
+				+ 2.1f;
+
+			float3 WorldForward = mul( WorldMatrix, float4( 1.0f, 0.0f, 0.2f, 0.0f ) ).xyz;
+			float3 RollAxisWorld = float3( WorldForward.x, 0.0f, WorldForward.z );
+			float RollAxisWorldLengthSquared = dot( RollAxisWorld, RollAxisWorld );
+			RollAxisWorld = ( RollAxisWorldLengthSquared > 1e-8f ) ? RollAxisWorld * rsqrt( RollAxisWorldLengthSquared ) : float3( 1.0f, 0.0f, 0.0f );
+
+			float3 RollAxisObject = mul( transpose( WorldMatrix3x3 ), RollAxisWorld );
+			float RollAxisObjectLengthSquared = dot( RollAxisObject, RollAxisObject );
+			RollAxisObject = ( RollAxisObjectLengthSquared > 1e-8f ) ? RollAxisObject * rsqrt( RollAxisObjectLengthSquared ) : float3( 0.0f, 0.0f, 1.0f );
+			float TiltAngle = sin( GlobalTime * TiltSpeed + PhaseTilt ) * TiltAmplitudeRad;
+			float CosTiltAngle = cos( TiltAngle );
+			float SinTiltAngle = sin( TiltAngle );
+
+			ObjectPosition = RotateAroundUnitAxis( ObjectPosition, RollAxisObject, CosTiltAngle, SinTiltAngle );
+			Normal = normalize( RotateAroundUnitAxis( Normal, RollAxisObject, CosTiltAngle, SinTiltAngle ) );
+			Tangent.xyz = normalize( RotateAroundUnitAxis( Tangent.xyz, RollAxisObject, CosTiltAngle, SinTiltAngle ) );
+
+			float BobWorld = sin( GlobalTime * BobSpeed + PhaseBob ) * WorldBobAmplitudeMeters;
+			ObjectPosition += LinearWorldDeltaToObject( WorldMatrix3x3, float3( 0.0f, BobWorld, 0.0f ) );
+		}
+
+		void ApplyAnimalBop( inout float3 ObjectPosition, in float2 UV0 )
+		{
+			#ifdef LOW_SPEC_SHADERS
+				return;
+			#endif
+
+			float Mask = PdxTex2DLod0(DiffuseMap, UV0 ).a;
+			const float HeadbopSpeed = 1.5f;
+			const float HeadbopAmplitudeMeters = 0.2f;
+			float phase = 0.0f;
+
+			#if defined( ANIMAL_BOP_OFFSET )
+				phase = ANIMAL_BOP_OFFSET;
+			#endif
+			
+			ObjectPosition.y += sin( GlobalTime * HeadbopSpeed + phase ) * HeadbopAmplitudeMeters * Mask;
 		}
 	]]
 
@@ -282,6 +367,11 @@ VertexShader =
 			{
 				VS_OUTPUT Out = ConvertOutput( PdxMeshVertexShaderStandard( Input ) );
 				Out.InstanceIndex = Input.InstanceIndices.y;
+
+				#ifdef ANIMAL_BOP
+					ApplyAnimalBop( Out.Position.xyz, Out.UV1 );
+				#endif
+
 				return Out;
 			}
 		]]
@@ -331,6 +421,73 @@ VertexShader =
 				CalculateSineAnimation( Input.UV1, Input.Position, Input.Normal, Input.Tangent );
 				#endif
 				return PdxMeshVertexShaderShadowStandard( Input );
+			}
+		]]
+	}
+
+	MainCode VS_boat_bob
+	{
+		Input = "VS_INPUT_PDXMESHSTANDARD"
+		Output = "VS_OUTPUT"
+		Code
+		[[
+			PDX_MAIN
+			{
+				float4x4 WorldMatrix = PdxMeshGetWorldMatrix( Input.InstanceIndices.y );
+				ApplyBoatBob( Input.Position, Input.Normal, Input.Tangent, WorldMatrix );
+				VS_OUTPUT Out = ConvertOutput( PdxMeshVertexShaderStandard( Input ) );
+				Out.InstanceIndex = Input.InstanceIndices.y;
+				return Out;
+			}
+		]]
+	}
+	MainCode VS_boat_bob_shadow
+	{
+		Input = "VS_INPUT_PDXMESHSTANDARD"
+		Output = "VS_OUTPUT_PDXMESHSHADOWSTANDARD"
+		Code
+		[[
+			PDX_MAIN
+			{
+				float4x4 WorldMatrix = PdxMeshGetWorldMatrix( Input.InstanceIndices.y );
+				ApplyBoatBob( Input.Position, Input.Normal, Input.Tangent, WorldMatrix );
+				return PdxMeshVertexShaderShadowStandard( Input );
+			}
+		]]
+	}
+
+	MainCode VS_boat_bob_mapobject
+	{
+		Input = "VS_INPUT_PDXMESH_MAPOBJECT"
+		Output = "VS_OUTPUT"
+		Code
+		[[
+			PDX_MAIN
+			{
+				float4x4 WorldMatrix = UnpackAndGetMapObjectWorldMatrix( Input.InstanceIndex24_Opacity8 );
+				ApplyBoatBob( Input.Position, Input.Normal, Input.Tangent, WorldMatrix );
+				VS_OUTPUT Out = ConvertOutput( PdxMeshVertexShader( PdxMeshConvertInput( Input ), 0, WorldMatrix ) );
+				Out.InstanceIndex = Input.InstanceIndex24_Opacity8;
+				return Out;
+			}
+		]]
+	}
+	MainCode VS_boat_bob_mapobject_shadow
+	{
+		Input = "VS_INPUT_PDXMESH_MAPOBJECT"
+		Output = "VS_OUTPUT_MAPOBJECT_SHADOW"
+		Code
+		[[
+			PDX_MAIN
+			{
+				uint InstanceIndex;
+				float Opacity;
+				UnpackMapObjectInstanceData( Input.InstanceIndex24_Opacity8, InstanceIndex, Opacity );
+				float4x4 WorldMatrix = GetWorldMatrixMapObject( InstanceIndex );
+				ApplyBoatBob( Input.Position, Input.Normal, Input.Tangent, WorldMatrix );
+				VS_OUTPUT_MAPOBJECT_SHADOW Out = ConvertOutputMapObjectShadow( PdxMeshVertexShaderShadow( PdxMeshConvertInput( Input ), 0, WorldMatrix ) );
+				Out.InstanceIndex24_Opacity8 = Input.InstanceIndex24_Opacity8;
+				return Out;
 			}
 		]]
 	}
@@ -437,6 +594,9 @@ PixelShader =
 				#endif
 			#endif
 
+			static const float MeshColorOverlayStrength = 0.3f;
+			static const float MeshColorOverlayBrightness = 0.1f;
+
 			PDX_MAIN
 			{
 				float4 Diffuse = PdxTex2D( DiffuseMap, DIFFUSE_UV_SET );
@@ -450,6 +610,11 @@ PixelShader =
 
 				#ifdef SCREENDOOR_DITHER
 					DitheredOpacity(Diffuse.a, Input.Position.xy);
+				#endif
+
+				#ifdef ALPHA_CUTOUT
+					clip( Diffuse.a - 0.5f );
+					Diffuse.a = 1.0f;
 				#endif
 
 				float4 Properties = PdxTex2D( PropertiesMap, PROPERTIES_UV_SET );
@@ -515,6 +680,21 @@ PixelShader =
 
 				float FogOfWarAlphaValue = PdxTex2D( FogOfWarAlpha, ColorMapCoords ).r;
 
+				#ifdef MESH_COLOR_OVERLAY
+					float3 BorderColor = vec3( 0.0f );
+					float BorderPostLightingBlend = 0.0f;
+					if ( _HasMapBuildingColorOverlayEnabled == 1 )
+					{
+						float BorderPreLightingBlend;
+						float DivergentRites = SampleProvinceDivergentRitesEffectMask( ColorMapCoords );
+						GetBorderColorAndBlendGame( Input.WorldSpacePos.xz, Diffuse.rgb, BorderColor, BorderPreLightingBlend, BorderPostLightingBlend, DivergentRites );
+						BorderColor *= 1.0f - MeshColorOverlayBrightness;
+						BorderPreLightingBlend *= MeshColorOverlayStrength;
+						BorderPostLightingBlend *= MeshColorOverlayStrength;
+						LerpBorderColorWithFogOfWarAlphaValue( Diffuse.rgb, FogOfWarAlphaValue, BorderColor, BorderPreLightingBlend );
+					}
+				#endif
+
 				#ifdef MAP_LIGHTING_HACK
 					SMaterialProperties MaterialProps = GetMaterialProperties(
 						Diffuse.rgb,
@@ -532,20 +712,19 @@ PixelShader =
 					SLightingProperties LightingProps = GetMapLightingProperties( 
 						Input.WorldSpacePos, 1.0f );
 					#ifdef MAP_LIGHTING_HACK
-						float3 Color = CalculateMapObjectsSunLightingLowSpec( MaterialProps, LightingProps );
+						#ifdef MAP_LIGHTING_TERRAIN_DECAL
+							float3 Color = CalculateTerrainSunLightingLowSpec( MaterialProps, LightingProps );
+						#else
+							float3 Color = CalculateMapObjectsSunLightingLowSpec( MaterialProps, LightingProps );
+						#endif
 					#else
 						float3 Color = CalculateSunLightingLowSpec( MaterialProps, LightingProps );
 					#endif
 
 				#else
-					SLightingProperties LightingProps = GetMapLightingProperties(
-						Input.WorldSpacePos, ShadowTexture );
-
+					SLightingProperties LightingProps = GetMapLightingProperties( Input.WorldSpacePos, ShadowTexture );
 					// Apply fog of war adjustments when MAP_LIGHTING_HACK is defined
 					#ifdef MAP_LIGHTING_HACK
-						LightingProps._LightIntensity *= lerp( 0.3f, 1.0f, FogOfWarAlphaValue );
-						LightingProps._CubemapIntensity *= lerp( 0.2f, 1.0f, FogOfWarAlphaValue );
-						
 						// Calculate combined shadow mask from clouds and shadow tint
 						float CloudMask = GetCloudShadowMask( Input.WorldSpacePos.xz, FogOfWarAlphaValue );
 						float3 TerrainNormal = CalculateNormal( Input.WorldSpacePos.xz );
@@ -554,12 +733,20 @@ PixelShader =
 						SShadowTintData ShadowTintData = GetShadowTintData( ColorMapCoords );
 						float TerrainShadowTerm = GetShadowTintMask( ShadowTintData, LightingProps._ToLightDir, LightingProps._ShadowTerm, TerrainNormal, Normal );
 						LightingProps._ShadowTerm = LightingProps._ShadowTerm * ( 1.0f - TerrainShadowTerm );
+						LightingProps._LightIntensity *= lerp( 0.3f, 1.0f, FogOfWarAlphaValue );
+						LightingProps._CubemapIntensity *= lerp( 0.2f, 1.0f, FogOfWarAlphaValue );
 
-						// Use dual scenario lighting wrapper function for all map objects
-						float3 Color = CalculateMapObjectsDualScenarioLighting( LightingProps, MaterialProps, CloudMask, EnvironmentMap );
-						
-						// Apply shadow tint with cloud interaction for map objects
-						Color = ApplyMapObjectsShadowTintWithClouds( Color, ColorMapCoords, CloudMask, LightingProps._ShadowTerm, Normal, TerrainNormal );
+						#ifdef MAP_LIGHTING_TERRAIN_DECAL
+							// Match pdxmesh_decal CalcDecal (FAKE_TERRAIN_SHADOW): terrain dual-scenario lighting and tint
+							float3 Color = CalculateTerrainDualScenarioLighting( LightingProps, MaterialProps, CloudMask, EnvironmentMap );
+							Color = ApplyTerrainShadowTintWithClouds( Color, Input.WorldSpacePos.xz, CloudMask, LightingProps._ShadowTerm, Normal, TerrainNormal );
+						#else
+							// Use dual scenario lighting wrapper function for all map objects
+							float3 Color = CalculateMapObjectsDualScenarioLighting( LightingProps, MaterialProps, MAP_OBJECTS_SUNNY_NORMAL_STRENGTH, MAP_OBJECTS_OVERCAST_NORMAL_STRENGTH, CloudMask, EnvironmentMap );
+							
+							// Apply shadow tint with cloud interaction for map objects
+							Color = ApplyMapObjectsShadowTintWithClouds( Color, ColorMapCoords, CloudMask, LightingProps._ShadowTerm, Normal, TerrainNormal );
+						#endif
 					#else
 						float3 Color = CalculateSunLighting( MaterialProps, LightingProps, EnvironmentMap );
 					#endif
@@ -588,6 +775,10 @@ PixelShader =
 				#if !defined( UNDERWATER ) && !defined( NO_FOG )
 					Color = ApplyFogOfWar( Color, Input.WorldSpacePos, FogOfWarAlpha );
 					Color = ApplyMapDistanceFogWithoutFoW( Color, Input.WorldSpacePos );
+				#endif
+
+				#ifdef MESH_COLOR_OVERLAY
+					Color.rgb = lerp( Color.rgb, BorderColor, BorderPostLightingBlend );
 				#endif
 
 				#if defined( BAKED_LIGHTING )
@@ -744,6 +935,11 @@ BlendState additive_blend
 	DestBlend = "ONE"
 }
 
+BlendState alpha_cutout
+{
+	BlendEnable = no
+}
+
 DepthStencilState DepthStencilState
 {
 	StencilEnable = yes
@@ -811,7 +1007,7 @@ Effect standard_usercolor_winter
 {
 	VertexShader = "VS_standard"
 	PixelShader = "PS_standard"
-	Defines = { "USER_COLOR" "APPLY_WINTER" "MAP_LIGHTING_HACK" }
+	Defines = { "USER_COLOR" "APPLY_WINTER" "MAP_LIGHTING_HACK" "MESH_COLOR_OVERLAY" }
 }
 Effect standard_usercolor_winterShadow
 {
@@ -865,7 +1061,7 @@ Effect standard_atlas
 	VertexShader = "VS_standard"
 	PixelShader = "PS_standard"
 	DepthStencilState = DepthStencilStateNoReplace
-	Defines = { "ATLAS" "APPLY_WINTER" "MAP_LIGHTING_HACK" }
+	Defines = { "ATLAS" "APPLY_WINTER" "MAP_LIGHTING_HACK" "MESH_COLOR_OVERLAY" }
 }
 Effect standard_atlasShadow
 {
@@ -877,7 +1073,7 @@ Effect standard_winter
 {
 	VertexShader = "VS_standard"
 	PixelShader = "PS_standard"
-	Defines = { "APPLY_WINTER" "MAP_LIGHTING_HACK" }
+	Defines = { "APPLY_WINTER" "MAP_LIGHTING_HACK" "MESH_COLOR_OVERLAY" }
 }
 Effect standard_winterShadow
 {
@@ -1037,7 +1233,7 @@ Effect sine_flag_animation
 	PixelShader = "PS_standard"
 	#RasterizerState = rasterizer_no_culling
 	DepthStencilState = DepthStencilStateNoReplace
-	Defines = { "USER_COLOR" "MAP_LIGHTING_HACK" }
+	Defines = { "USER_COLOR" "MAP_LIGHTING_HACK" "MESH_COLOR_OVERLAY" }
 }
 Effect sine_flag_animationShadow
 {
@@ -1046,6 +1242,32 @@ Effect sine_flag_animationShadow
 	RasterizerState = ShadowRasterizerState
 }
 
+Effect boat_bob_atlas
+{
+	VertexShader = "VS_boat_bob"
+	PixelShader = "PS_standard"
+	DepthStencilState = DepthStencilStateNoReplace
+	Defines = { "ATLAS" "APPLY_WINTER" "MAP_LIGHTING_HACK" "MESH_COLOR_OVERLAY" }
+}
+Effect boat_bob_atlasShadow
+{
+	VertexShader = "VS_boat_bob_shadow"
+	PixelShader = "PixelPdxMeshStandardShadow"
+	RasterizerState = ShadowRasterizerState
+}
+Effect boat_bob_atlas_mapobject
+{
+	VertexShader = "VS_boat_bob_mapobject"
+	PixelShader = "PS_standard"
+	DepthStencilState = DepthStencilStateNoReplace
+	Defines = { "ATLAS" "APPLY_WINTER" "MAP_LIGHTING_HACK" "MESH_COLOR_OVERLAY" }
+}
+Effect boat_bob_atlasShadow_mapobject
+{
+	VertexShader = "VS_boat_bob_mapobject_shadow"
+	PixelShader = "PS_jomini_mapobject_shadow"
+	RasterizerState = ShadowRasterizerState
+}
 
 Effect standard_alpha_blend
 {
@@ -1081,7 +1303,7 @@ Effect standard_alpha_to_coverage_winter
 	VertexShader = "VS_standard"
 	PixelShader = "PS_standard"
 	BlendState = "alpha_to_coverage"
-	Defines = { "APPLY_WINTER" "MAP_LIGHTING_HACK" }
+	Defines = { "APPLY_WINTER" "MAP_LIGHTING_HACK" "MESH_COLOR_OVERLAY" }
 }
 Effect standard_alpha_to_coverage_winterShadow
 {
@@ -1098,7 +1320,7 @@ Effect snap_to_terrain
 	VertexShader = "VS_standard"
 	PixelShader = "PS_standard"
 	DepthStencilState = DepthStencilStateNoReplace
-	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "APPLY_WINTER" "MAP_LIGHTING_HACK" }
+	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "APPLY_WINTER" "MAP_LIGHTING_HACK" "MESH_COLOR_OVERLAY" }
 }
 Effect snap_to_terrainShadow
 {
@@ -1115,7 +1337,7 @@ Effect snap_to_terrain_alpha_to_coverage
 
 	BlendState = "alpha_to_coverage"
 	DepthStencilState = DepthStencilStateNoReplace
-	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "APPLY_WINTER" "MAP_LIGHTING_HACK" }
+	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "APPLY_WINTER" "MAP_LIGHTING_HACK" "MESH_COLOR_OVERLAY" }
 }
 Effect snap_to_terrain_alpha_to_coverageShadow
 {
@@ -1125,12 +1347,47 @@ Effect snap_to_terrain_alpha_to_coverageShadow
 	RasterizerState = ShadowRasterizerState
 	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "MAP_LIGHTING_HACK" }
 }
+Effect snap_to_terrain_alpha_cutout
+{
+	VertexShader = "VS_standard"
+	PixelShader = "PS_standard"
+
+	BlendState = "alpha_cutout"
+	DepthStencilState = DepthStencilStateNoReplace
+	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "APPLY_WINTER" "MAP_LIGHTING_HACK" "ALPHA_CUTOUT" "MESH_COLOR_OVERLAY" }
+}
+Effect snap_to_terrain_alpha_cutoutShadow
+{
+	VertexShader = "VertexPdxMeshStandardShadow"
+	PixelShader = "PixelPdxMeshAlphaBlendShadow"
+
+	RasterizerState = ShadowRasterizerState
+	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "MAP_LIGHTING_HACK" "ALPHA_CUTOUT" }
+}
+
+Effect snap_to_terrain_alpha_terrain_blend
+{
+	VertexShader = "VS_standard"
+	PixelShader = "PS_standard"
+
+	BlendState = "alpha_to_coverage"
+	DepthStencilState = DepthStencilStateNoReplace
+	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "APPLY_WINTER" "MAP_LIGHTING_HACK" "MAP_LIGHTING_TERRAIN_DECAL" "MESH_COLOR_OVERLAY" }
+}
+Effect snap_to_terrain_alpha_terrain_blendShadow
+{
+	VertexShader = "VertexPdxMeshStandardShadow"
+	PixelShader = "PixelPdxMeshAlphaBlendShadow"
+
+	RasterizerState = ShadowRasterizerState
+	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "MAP_LIGHTING_HACK" "MAP_LIGHTING_TERRAIN_DECAL" }
+}
 Effect snap_to_terrain_atlas
 {
 	VertexShader = "VS_standard"
 	PixelShader = "PS_standard"
 	DepthStencilState = DepthStencilStateNoReplace
-	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "ATLAS" "APPLY_WINTER" "MAP_LIGHTING_HACK" }
+	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "ATLAS" "APPLY_WINTER" "MAP_LIGHTING_HACK" "MESH_COLOR_OVERLAY" }
 }
 Effect snap_to_terrain_atlasShadow
 {
@@ -1144,7 +1401,7 @@ Effect snap_to_terrain_atlas_usercolor
 	VertexShader = "VS_standard"
 	PixelShader = "PS_standard"
 	DepthStencilState = DepthStencilStateNoReplace
-	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "ATLAS" "USER_COLOR" "APPLY_WINTER" "MAP_LIGHTING_HACK" }
+	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "ATLAS" "USER_COLOR" "APPLY_WINTER" "MAP_LIGHTING_HACK" "MESH_COLOR_OVERLAY" }
 }
 Effect snap_to_terrain_atlas_usercolorShadow
 {
@@ -1227,7 +1484,7 @@ Effect standard_atlas_mapobject
 {
 	VertexShader = "VS_mapobject"
 	PixelShader = "PS_standard" 
-	Defines = { "ATLAS" "APPLY_WINTER" "MAP_LIGHTING_HACK" }
+	Defines = { "ATLAS" "APPLY_WINTER" "MAP_LIGHTING_HACK" "MESH_COLOR_OVERLAY" }
 }
 Effect standard_atlasShadow_mapobject
 {
@@ -1242,7 +1499,7 @@ Effect snap_to_terrain_mapobject
 	VertexShader = "VS_mapobject"
 	PixelShader = "PS_standard"
 
-	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "APPLY_WINTER" "MAP_LIGHTING_HACK" }
+	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "APPLY_WINTER" "MAP_LIGHTING_HACK" "MESH_COLOR_OVERLAY" }
 }
 Effect snap_to_terrainShadow_mapobject
 {
@@ -1258,7 +1515,7 @@ Effect snap_to_terrain_alpha_to_coverage_mapobject
 	PixelShader = "PS_standard"
 
 	BlendState = "alpha_to_coverage"
-	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "APPLY_WINTER" "MAP_LIGHTING_HACK" }
+	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "APPLY_WINTER" "MAP_LIGHTING_HACK" "MESH_COLOR_OVERLAY" }
 }
 Effect snap_to_terrain_alpha_to_coverageShadow_mapobject
 {
@@ -1268,12 +1525,46 @@ Effect snap_to_terrain_alpha_to_coverageShadow_mapobject
 	RasterizerState = ShadowRasterizerState
 	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" }
 }
+
+Effect snap_to_terrain_alpha_cutout_mapobject
+{
+	VertexShader = "VS_mapobject"
+	PixelShader = "PS_standard"
+
+	BlendState = "alpha_cutout"
+	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "APPLY_WINTER" "MAP_LIGHTING_HACK" "ALPHA_CUTOUT" "MESH_COLOR_OVERLAY" }
+}
+Effect snap_to_terrain_alpha_cutoutShadow_mapobject
+{
+	VertexShader = "VS_jomini_mapobject_shadow"
+	PixelShader = "PS_jomini_mapobject_shadow_alphablend"
+
+	RasterizerState = ShadowRasterizerState
+	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "ALPHA_CUTOUT" }
+}
+
+Effect snap_to_terrain_alpha_terrain_blend_mapobject
+{
+	VertexShader = "VS_mapobject"
+	PixelShader = "PS_standard"
+
+	BlendState = "alpha_to_coverage"
+	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "APPLY_WINTER" "MAP_LIGHTING_HACK" "MAP_LIGHTING_TERRAIN_DECAL" "MESH_COLOR_OVERLAY" }
+}
+Effect snap_to_terrain_alpha_terrain_blendShadow_mapobject
+{
+	VertexShader = "VS_jomini_mapobject_shadow"
+	PixelShader = "PS_jomini_mapobject_shadow_alphablend"
+
+	RasterizerState = ShadowRasterizerState
+	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "MAP_LIGHTING_TERRAIN_DECAL" }
+}
 Effect snap_to_terrain_atlas_mapobject
 {
 	VertexShader = "VS_mapobject"
 	PixelShader = "PS_standard"
 	DepthStencilState = DepthStencilStateNoReplace
-	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "ATLAS" "APPLY_WINTER" "MAP_LIGHTING_HACK" }
+	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "ATLAS" "APPLY_WINTER" "MAP_LIGHTING_HACK" "MESH_COLOR_OVERLAY" }
 }
 Effect snap_to_terrain_atlasShadow_mapobject
 {
@@ -1287,7 +1578,7 @@ Effect snap_to_terrain_atlas_usercolor_mapobject
 	VertexShader = "VS_mapobject"
 	PixelShader = "PS_standard"
 	DepthStencilState = DepthStencilStateNoReplace
-	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "ATLAS" "USER_COLOR" "MAP_LIGHTING_HACK" }
+	Defines = { "PDX_MESH_SNAP_VERTICES_TO_TERRAIN" "ATLAS" "USER_COLOR" "MAP_LIGHTING_HACK" "MESH_COLOR_OVERLAY" }
 }
 Effect snap_to_terrain_atlas_usercolorShadow_mapobject
 {

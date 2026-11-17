@@ -24,11 +24,11 @@ https://forum.paradoxplaza.com/forum/threads/1946916/
 - Только графика: никаких файлов геймплея, скриптов и истории, железный режим и достижения не страдают
 - Можно включать и выключать в любой момент, в том числе посреди кампании
 - Первая загрузка карты после включения медленнее: изменённый шейдер компилируется и кэшируется заново
-- Собран под CK3 1.20.x. Переопределение заменяет ванильный файл целиком, так что патч, переделывающий pdxmesh.shader, потребует обновления
+- Собран под CK3 1.21.x. Переопределение заменяет ванильный файл целиком, так что патч, переделывающий pdxmesh.shader, потребует обновления
 
 СОВМЕСТИМОСТЬ
 
-Заменяет gfx/FX/pdxmesh.shader целиком. Конфликтует только с модами, которые несут этот же файл; побеждает тот, что ниже в порядке загрузки. Совместим с https://steamcommunity.com/sharedfiles/filedetails/?id=3800159542, https://steamcommunity.com/sharedfiles/filedetails/?id=3800565268, https://steamcommunity.com/sharedfiles/filedetails/?id=3800565988 и https://steamcommunity.com/sharedfiles/filedetails/?id=3815911404 — ни один из них этот файл не трогает.
+Заменяет gfx/FX/pdxmesh.shader целиком. Конфликтует только с модами, которые несут этот же файл; побеждает тот, что ниже в порядке загрузки. Совместим с https://steamcommunity.com/sharedfiles/filedetails/?id=3800159542, https://steamcommunity.com/sharedfiles/filedetails/?id=3800565268, https://steamcommunity.com/sharedfiles/filedetails/?id=3800565988 — ни один из них этот файл не трогает. All-in-One Map Pack, https://steamcommunity.com/sharedfiles/filedetails/?id=3815911404, уже содержит этот мод: ставьте либо его, либо этот, но не оба.
 
 Не для A Game of Thrones: у AGOT свой pdxmesh.shader, и этот мод его заменил бы.
 

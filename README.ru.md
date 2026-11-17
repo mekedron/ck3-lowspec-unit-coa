@@ -40,7 +40,9 @@ low spec. Остальной low spec путь (вершинные нормал�
   Побеждает мод, стоящий ниже в порядке загрузки.
 * Совместим с Sharp Terrain, Real Snow, Better Water и Visible Epidemics: ни один из них
   `pdxmesh.shader` не трогает.
-* Собран на CK3 1.20.1.2. После патча игры, меняющего `pdxmesh.shader`, файл нужно
+* [All-in-One Map Pack Without Advanced Shaders](https://github.com/mekedron/ck3-lowspec-all-in-one)
+  уже содержит этот мод: ставьте либо его, либо этот, но не оба.
+* Собран на CK3 1.21.0. После патча игры, меняющего `pdxmesh.shader`, файл нужно
   пересобрать из новой ванильной копии.
 * С включёнными дополнительными эффектами ничего не делает — ваниль там гербы и так рисует.
 

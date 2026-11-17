@@ -40,7 +40,9 @@ The change sits behind `#define UNITCOA_LOWSPEC` at the top of the file's shared
   Whichever mod is lower in the load order wins.
 * Works alongside Sharp Terrain, Real Snow, Better Water and Visible Epidemics: none of
   them touches `pdxmesh.shader`.
-* Built on CK3 1.20.1.2. After a game patch that changes `pdxmesh.shader`, the file has to
+* The [All-in-One Map Pack Without Advanced Shaders](https://github.com/mekedron/ck3-lowspec-all-in-one)
+  already contains this mod: use one or the other, not both.
+* Built on CK3 1.21.0. After a game patch that changes `pdxmesh.shader`, the file has to
   be rebuilt from the new vanilla copy.
 * Does nothing with Advanced Shaders on - vanilla already draws the coats of arms there.
 
